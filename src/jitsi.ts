@@ -48,12 +48,12 @@ export function initJitsi(displayName: string): { dispose: () => void } {
     userInfo: { displayName },
   });
 
-  api.addEventListener('videoConferenceJoined', () => {
-    const iframe = document.querySelector('#jitsi-container iframe') as HTMLIFrameElement | null;
-    if (iframe) {
-      iframe.setAttribute('allow', 'camera; microphone; autoplay; display-capture; fullscreen');
-    }
-  });
+  // Set iframe permissions immediately — must happen before the browser
+  // requests camera/mic access, not after videoConferenceJoined.
+  const iframe = document.querySelector('#jitsi-container iframe') as HTMLIFrameElement | null;
+  if (iframe) {
+    iframe.setAttribute('allow', 'camera; microphone; autoplay; display-capture; fullscreen');
+  }
 
   return { dispose: () => api.dispose() };
 }
