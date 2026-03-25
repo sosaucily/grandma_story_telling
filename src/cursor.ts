@@ -1,14 +1,12 @@
-import type { SyncMessage } from './types';
+import { writeCursor, startCursorPolling } from './sync';
+import type { CursorState } from './types';
 
-const THROTTLE_MS = 100; // ~10 messages/sec
+const THROTTLE_MS = 300; // ~3 writes/sec to conserve Redis quota
 const HIDE_AFTER_MS = 5000;
 
-// ── Sender (Eli's side): track cursor and send normalized coords ──
+// ── Sender (Eli's side): track cursor and write to API ──
 
-export function startCursorBroadcast(
-  container: HTMLElement,
-  send: (msg: SyncMessage) => void,
-) {
+export function startCursorBroadcast(container: HTMLElement) {
   let lastSent = 0;
 
   function emitPosition(clientX: number, clientY: number) {
@@ -22,7 +20,7 @@ export function startCursorBroadcast(
 
     if (x < 0 || x > 1 || y < 0 || y > 1) return;
 
-    send({ type: 'cursor-move', x, y });
+    writeCursor(x, y, true);
   }
 
   container.addEventListener('mousemove', (e) => {
@@ -35,9 +33,9 @@ export function startCursorBroadcast(
   }, { passive: true });
 }
 
-// ── Receiver (Grandma's side): render Eli's cursor on the book image ──
+// ── Receiver (Grandma's side): render Eli's cursor via polling ──
 
-export function createCursorRenderer(container: HTMLElement): (msg: SyncMessage) => void {
+export function createCursorRenderer(container: HTMLElement): () => void {
   const el = document.createElement('div');
   el.id = 'eli-cursor';
   el.textContent = '👆';
@@ -46,18 +44,20 @@ export function createCursorRenderer(container: HTMLElement): (msg: SyncMessage)
 
   let hideTimer: ReturnType<typeof setTimeout> | null = null;
 
-  return (msg: SyncMessage) => {
-    if (msg.type === 'cursor-move') {
-      el.style.left = `${msg.x * 100}%`;
-      el.style.top = `${msg.y * 100}%`;
+  const stopPolling = startCursorPolling(300, (cursor: CursorState) => {
+    if (cursor.visible) {
+      el.style.left = `${cursor.x * 100}%`;
+      el.style.top = `${cursor.y * 100}%`;
       el.classList.remove('hidden');
 
       if (hideTimer) clearTimeout(hideTimer);
       hideTimer = setTimeout(() => {
         el.classList.add('hidden');
       }, HIDE_AFTER_MS);
-    } else if (msg.type === 'cursor-hide') {
+    } else {
       el.classList.add('hidden');
     }
-  };
+  });
+
+  return stopPolling;
 }

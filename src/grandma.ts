@@ -1,9 +1,8 @@
 import { listBooks, listPages, getImageUrl } from './drive';
 import { initJitsi, loadJitsiScript } from './jitsi';
 import { createCursorRenderer } from './cursor';
-import type { Book, Page, SyncMessage } from './types';
-
-const SHARED_ROOM = 'family-reading';
+import { writeState } from './sync';
+import type { Book, Page } from './types';
 
 interface GrandmaState {
   phase: 'picking' | 'reading';
@@ -11,8 +10,7 @@ interface GrandmaState {
   currentBook: Book | null;
   pages: Page[];
   currentPage: number;
-  jitsi: ReturnType<typeof initJitsi> | null;
-  cursorHandler: ((msg: SyncMessage) => void) | null;
+  stopCursorPolling: (() => void) | null;
 }
 
 const state: GrandmaState = {
@@ -21,14 +19,13 @@ const state: GrandmaState = {
   currentBook: null,
   pages: [],
   currentPage: 0,
-  jitsi: null,
-  cursorHandler: null,
+  stopCursorPolling: null,
 };
 
 export async function initGrandma() {
   const app = document.getElementById('app')!;
 
-  // Show book picker with a jitsi container already present
+  // Show book picker with Jitsi container (video starts on this page)
   app.innerHTML = `
     <div class="book-picker">
       <h2>Pick a book to read!</h2>
@@ -39,6 +36,9 @@ export async function initGrandma() {
     <div id="jitsi-container"></div>
   `;
 
+  // Write initial state so Eli knows we're on the picker
+  writeState({ phase: 'picking', page: 0, totalPages: 0 });
+
   // Load books and Jitsi in parallel
   const [books] = await Promise.all([
     listBooks().catch((err): Book[] => {
@@ -46,28 +46,7 @@ export async function initGrandma() {
         `<p class="error">Could not load books: ${err instanceof Error ? err.message : err}</p>`;
       return [];
     }),
-    loadJitsiScript().then(() => {
-      state.jitsi = initJitsi(SHARED_ROOM, 'Grandma', {
-        onMessage: (msg) => {
-          if (msg.type === 'cursor-move' || msg.type === 'cursor-hide') {
-            state.cursorHandler?.(msg);
-          }
-        },
-        onParticipantJoined: (id) => {
-          if (state.currentBook && state.pages.length > 0) {
-            setTimeout(() => {
-              state.jitsi?.sendTo(id, {
-                type: 'page-sync',
-                page: state.currentPage,
-                totalPages: state.pages.length,
-                bookId: state.currentBook!.id,
-                bookName: state.currentBook!.name,
-              });
-            }, 500);
-          }
-        },
-      });
-    }),
+    loadJitsiScript().then(() => initJitsi('Grandma')),
   ]);
 
   state.books = books;
@@ -111,7 +90,7 @@ async function selectBook(book: Book) {
   state.currentBook = book;
   state.phase = 'reading';
 
-  // Detach Jitsi iframe so we can move it
+  // Preserve Jitsi
   const jitsiContainer = document.getElementById('jitsi-container')!;
   const jitsiContent = document.createDocumentFragment();
   while (jitsiContainer.firstChild) {
@@ -133,20 +112,11 @@ async function selectBook(book: Book) {
     <div id="jitsi-container"></div>
   `;
   document.body.classList.add('room-body');
-
-  // Re-attach Jitsi
   document.getElementById('jitsi-container')!.appendChild(jitsiContent);
 
-  // Set up cursor renderer
+  // Set up cursor renderer (polls Redis for Eli's cursor)
   const pageContainer = document.getElementById('page-container')!;
-  state.cursorHandler = createCursorRenderer(pageContainer);
-
-  // Notify Eli that a book was selected
-  state.jitsi?.send({
-    type: 'book-selected',
-    bookId: book.id,
-    bookName: book.name,
-  });
+  state.stopCursorPolling = createCursorRenderer(pageContainer);
 
   // Load pages
   try {
@@ -158,13 +128,13 @@ async function selectBook(book: Book) {
     showPage(0);
     setupControls();
 
-    // Send initial page sync
-    state.jitsi?.send({
-      type: 'page-sync',
-      page: 0,
-      totalPages: state.pages.length,
+    // Write state so Eli knows which book and page
+    writeState({
+      phase: 'reading',
       bookId: book.id,
       bookName: book.name,
+      page: 0,
+      totalPages: state.pages.length,
     });
   } catch (err) {
     pageContainer.innerHTML = `<p class="error">Could not load pages: ${err instanceof Error ? err.message : err}</p>`;
@@ -210,8 +180,12 @@ function showPage(index: number) {
 
 function changePage(newPage: number) {
   showPage(newPage);
-  state.jitsi?.send({
-    type: 'page-change',
+
+  // Write updated page to Redis so Eli syncs
+  writeState({
+    phase: 'reading',
+    bookId: state.currentBook!.id,
+    bookName: state.currentBook!.name,
     page: state.currentPage,
     totalPages: state.pages.length,
   });
@@ -225,12 +199,20 @@ function setupControls() {
     if (state.currentPage < state.pages.length - 1) changePage(state.currentPage + 1);
   });
   document.getElementById('back-btn')!.addEventListener('click', () => {
+    // Stop cursor polling
+    state.stopCursorPolling?.();
+    state.stopCursorPolling = null;
+
     document.body.classList.remove('room-body');
     state.phase = 'picking';
     state.currentBook = null;
     state.pages = [];
     state.currentPage = 0;
 
+    // Write state so Eli returns to book picker too
+    writeState({ phase: 'picking', page: 0, totalPages: 0 });
+
+    // Preserve Jitsi
     const jitsiContainer = document.getElementById('jitsi-container')!;
     const jitsiContent = document.createDocumentFragment();
     while (jitsiContainer.firstChild) {

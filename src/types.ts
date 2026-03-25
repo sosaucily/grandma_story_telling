@@ -10,9 +10,18 @@ export interface Page {
   name: string;
 }
 
-export type SyncMessage =
-  | { type: 'book-selected'; bookId: string; bookName: string }
-  | { type: 'page-change'; page: number; totalPages: number }
-  | { type: 'page-sync'; page: number; totalPages: number; bookId: string; bookName: string }
-  | { type: 'cursor-move'; x: number; y: number }
-  | { type: 'cursor-hide' };
+export interface SessionState {
+  phase: 'picking' | 'reading';
+  bookId?: string;
+  bookName?: string;
+  page: number;
+  totalPages: number;
+  updatedAt: number;
+}
+
+export interface CursorState {
+  x: number;
+  y: number;
+  visible: boolean;
+  updatedAt: number;
+}

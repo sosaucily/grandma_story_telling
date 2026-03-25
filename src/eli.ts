@@ -1,84 +1,161 @@
-import { listPages, getImageUrl } from './drive';
+import { listBooks, listPages, getImageUrl } from './drive';
 import { initJitsi, loadJitsiScript } from './jitsi';
 import { startCursorBroadcast } from './cursor';
-import type { Page, SyncMessage } from './types';
-
-const SHARED_ROOM = 'family-reading';
+import { startStatePolling } from './sync';
+import type { Book, Page, SessionState } from './types';
 
 interface EliState {
+  phase: 'picking' | 'reading';
+  books: Book[];
   pages: Page[];
   currentPage: number;
   currentBookId: string | null;
-  jitsi: ReturnType<typeof initJitsi> | null;
 }
 
 const state: EliState = {
+  phase: 'picking',
+  books: [],
   pages: [],
   currentPage: 0,
   currentBookId: null,
-  jitsi: null,
 };
 
 export async function initEli() {
   const app = document.getElementById('app')!;
+
+  // Show book picker (read-only) with Jitsi container
   app.innerHTML = `
-    <div class="waiting">
-      <div class="spinner"></div>
-      <p>Waiting for Grandma to pick a book...</p>
+    <div class="book-picker">
+      <h2>Tell Grandma which book you want!</h2>
+      <div class="book-grid" id="book-grid">
+        <div class="loading">Loading books...</div>
+      </div>
     </div>
     <div id="jitsi-container"></div>
   `;
 
-  await loadJitsiScript();
+  // Load books and Jitsi in parallel
+  const [books] = await Promise.all([
+    listBooks().catch((): Book[] => {
+      document.getElementById('book-grid')!.innerHTML =
+        '<p class="error">Could not load books.</p>';
+      return [];
+    }),
+    loadJitsiScript().then(() => initJitsi('Eli')),
+  ]);
 
-  state.jitsi = initJitsi(SHARED_ROOM, 'Eli', {
-    onMessage: (msg: SyncMessage) => {
-      if (msg.type === 'page-sync') {
-        loadBookAndShowPage(msg.bookId, msg.page);
-      } else if (msg.type === 'page-change') {
-        showPage(msg.page);
-      } else if (msg.type === 'book-selected') {
-        loadBookAndShowPage(msg.bookId, 0);
-      }
-    },
-  });
+  state.books = books;
+  renderBookGrid();
+
+  // Start polling session state from Grandma
+  startStatePolling(500, handleStateChange);
 }
 
-async function loadBookAndShowPage(bookId: string, page: number) {
-  if (bookId !== state.currentBookId) {
-    state.currentBookId = bookId;
+function renderBookGrid() {
+  const grid = document.getElementById('book-grid')!;
 
-    const jitsiContainer = document.getElementById('jitsi-container')!;
-    const jitsiContent = document.createDocumentFragment();
-    while (jitsiContainer.firstChild) {
-      jitsiContent.appendChild(jitsiContainer.firstChild);
+  if (state.books.length === 0) {
+    grid.innerHTML = '<p class="error">No books found.</p>';
+    return;
+  }
+
+  grid.innerHTML = '';
+  for (const book of state.books) {
+    const card = document.createElement('div');
+    card.className = 'book-card book-card-readonly';
+    card.innerHTML = `<span class="book-title">${escapeHtml(book.name)}</span>`;
+    grid.appendChild(card);
+    loadCover(book.id, card);
+  }
+}
+
+async function loadCover(bookId: string, card: HTMLElement) {
+  try {
+    const pages = await listPages(bookId);
+    if (pages.length > 0) {
+      const img = document.createElement('img');
+      img.src = getImageUrl(pages[0].id);
+      img.alt = 'Book cover';
+      card.prepend(img);
     }
+  } catch {
+    // Silently fail
+  }
+}
 
-    const app = document.getElementById('app')!;
-    app.innerHTML = `
-      <div id="page-container">
-        <img id="book-page" src="" alt="Book page">
-        <div id="page-loading" class="loading">Loading...</div>
-      </div>
-      <div id="jitsi-container"></div>
-    `;
-    document.body.classList.add('room-body');
-
-    document.getElementById('jitsi-container')!.appendChild(jitsiContent);
-
-    try {
-      state.pages = await listPages(bookId);
-
-      const pageContainer = document.getElementById('page-container')!;
-      startCursorBroadcast(pageContainer, (msg) => state.jitsi?.send(msg));
-    } catch (err) {
-      document.getElementById('app')!.innerHTML =
-        `<p class="error">Could not load book: ${err instanceof Error ? err.message : err}</p>`;
-      return;
+async function handleStateChange(session: SessionState) {
+  if (session.phase === 'reading' && session.bookId) {
+    if (state.phase === 'picking' || session.bookId !== state.currentBookId) {
+      await enterReadingView(session.bookId, session.page);
+    } else if (session.page !== state.currentPage) {
+      showPage(session.page);
     }
+  } else if (session.phase === 'picking' && state.phase === 'reading') {
+    returnToBookPicker();
+  }
+}
+
+async function enterReadingView(bookId: string, page: number) {
+  state.phase = 'reading';
+  state.currentBookId = bookId;
+
+  // Preserve Jitsi
+  const jitsiContainer = document.getElementById('jitsi-container')!;
+  const jitsiContent = document.createDocumentFragment();
+  while (jitsiContainer.firstChild) {
+    jitsiContent.appendChild(jitsiContainer.firstChild);
+  }
+
+  const app = document.getElementById('app')!;
+  app.innerHTML = `
+    <div id="page-container">
+      <img id="book-page" src="" alt="Book page">
+      <div id="page-loading" class="loading">Loading...</div>
+    </div>
+    <div id="jitsi-container"></div>
+  `;
+  document.body.classList.add('room-body');
+  document.getElementById('jitsi-container')!.appendChild(jitsiContent);
+
+  try {
+    state.pages = await listPages(bookId);
+    const pageContainer = document.getElementById('page-container')!;
+    startCursorBroadcast(pageContainer);
+  } catch (err) {
+    document.getElementById('app')!.innerHTML =
+      `<p class="error">Could not load book: ${err instanceof Error ? err.message : err}</p>`;
+    return;
   }
 
   showPage(page);
+}
+
+function returnToBookPicker() {
+  state.phase = 'picking';
+  state.currentBookId = null;
+  state.pages = [];
+  state.currentPage = 0;
+  document.body.classList.remove('room-body');
+
+  // Preserve Jitsi
+  const jitsiContainer = document.getElementById('jitsi-container')!;
+  const jitsiContent = document.createDocumentFragment();
+  while (jitsiContainer.firstChild) {
+    jitsiContent.appendChild(jitsiContainer.firstChild);
+  }
+
+  const app = document.getElementById('app')!;
+  app.innerHTML = `
+    <div class="book-picker">
+      <h2>Tell Grandma which book you want!</h2>
+      <div class="book-grid" id="book-grid">
+        <div class="loading">Loading books...</div>
+      </div>
+    </div>
+    <div id="jitsi-container"></div>
+  `;
+  document.getElementById('jitsi-container')!.appendChild(jitsiContent);
+  renderBookGrid();
 }
 
 function showPage(index: number) {
@@ -101,4 +178,10 @@ function showPage(index: number) {
     loading.textContent = 'Failed to load image.';
   };
   img.src = getImageUrl(state.pages[index].id);
+}
+
+function escapeHtml(text: string): string {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
