@@ -54,7 +54,6 @@ export async function initGrandma() {
           }
         },
         onParticipantJoined: (id) => {
-          // Send current state to late joiners
           if (state.currentBook && state.pages.length > 0) {
             setTimeout(() => {
               state.jitsi?.sendTo(id, {
@@ -181,17 +180,8 @@ function showPage(index: number) {
   const indicator = document.getElementById('page-indicator')!;
 
   loading.style.display = 'block';
+  loading.textContent = 'Loading...';
   img.style.opacity = '0';
-
-  const url = getImageUrl(state.pages[index].id);
-  img.onload = () => {
-    loading.style.display = 'none';
-    img.style.opacity = '1';
-  };
-  img.onerror = () => {
-    loading.textContent = 'Failed to load image.';
-  };
-  img.src = url;
 
   indicator.textContent = `Page ${index + 1} of ${state.pages.length}`;
 
@@ -199,6 +189,15 @@ function showPage(index: number) {
   const nextBtn = document.getElementById('next-btn') as HTMLButtonElement;
   prevBtn.disabled = index === 0;
   nextBtn.disabled = index === state.pages.length - 1;
+
+  img.onload = () => {
+    loading.style.display = 'none';
+    img.style.opacity = '1';
+  };
+  img.onerror = () => {
+    loading.textContent = 'Failed to load image.';
+  };
+  img.src = getImageUrl(state.pages[index].id);
 
   // Preload adjacent pages
   for (const adj of [index - 1, index + 1]) {
@@ -232,7 +231,6 @@ function setupControls() {
     state.pages = [];
     state.currentPage = 0;
 
-    // Move Jitsi to the book picker view
     const jitsiContainer = document.getElementById('jitsi-container')!;
     const jitsiContent = document.createDocumentFragment();
     while (jitsiContainer.firstChild) {

@@ -142,11 +142,15 @@ body {
 /* ── Room (shared reading view) ── */
 
 .room-body {
+  background: #1a1410;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.room-body #app {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  overflow: hidden;
-  background: #1a1410;
 }
 
 #page-container {

@@ -45,11 +45,9 @@ export async function initEli() {
 }
 
 async function loadBookAndShowPage(bookId: string, page: number) {
-  // Only reload pages if book changed
   if (bookId !== state.currentBookId) {
     state.currentBookId = bookId;
 
-    // Detach Jitsi to preserve it
     const jitsiContainer = document.getElementById('jitsi-container')!;
     const jitsiContent = document.createDocumentFragment();
     while (jitsiContainer.firstChild) {
@@ -66,13 +64,11 @@ async function loadBookAndShowPage(bookId: string, page: number) {
     `;
     document.body.classList.add('room-body');
 
-    // Re-attach Jitsi
     document.getElementById('jitsi-container')!.appendChild(jitsiContent);
 
     try {
       state.pages = await listPages(bookId);
 
-      // Start cursor broadcasting on the page container
       const pageContainer = document.getElementById('page-container')!;
       startCursorBroadcast(pageContainer, (msg) => state.jitsi?.send(msg));
     } catch (err) {
@@ -94,9 +90,9 @@ function showPage(index: number) {
   if (!img || !loading) return;
 
   loading.style.display = 'block';
+  loading.textContent = 'Loading...';
   img.style.opacity = '0';
 
-  const url = getImageUrl(state.pages[index].id);
   img.onload = () => {
     loading.style.display = 'none';
     img.style.opacity = '1';
@@ -104,5 +100,5 @@ function showPage(index: number) {
   img.onerror = () => {
     loading.textContent = 'Failed to load image.';
   };
-  img.src = url;
+  img.src = getImageUrl(state.pages[index].id);
 }
