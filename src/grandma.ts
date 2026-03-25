@@ -1,5 +1,5 @@
 import { listBooks, listPages, getImageUrl } from './drive';
-import { initJitsi, loadJitsiScript } from './jitsi';
+import { initVideo, loadVideoScript } from './jitsi';
 import { createCursorRenderer } from './cursor';
 import { writeState } from './sync';
 import type { Book, Page } from './types';
@@ -46,7 +46,7 @@ export async function initGrandma() {
         `<p class="error">Could not load books: ${err instanceof Error ? err.message : err}</p>`;
       return [];
     }),
-    loadJitsiScript().then(() => initJitsi('Grandma')),
+    loadVideoScript().then(() => initVideo('Grandma')),
   ]);
 
   state.books = books;

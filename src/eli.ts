@@ -1,5 +1,5 @@
 import { listBooks, listPages, getImageUrl } from './drive';
-import { initJitsi, loadJitsiScript } from './jitsi';
+import { initVideo, loadVideoScript } from './jitsi';
 import { startCursorBroadcast } from './cursor';
 import { startStatePolling } from './sync';
 import type { Book, Page, SessionState } from './types';
@@ -41,7 +41,7 @@ export async function initEli() {
         '<p class="error">Could not load books.</p>';
       return [];
     }),
-    loadJitsiScript().then(() => initJitsi('Eli')),
+    loadVideoScript().then(() => initVideo('Eli')),
   ]);
 
   state.books = books;

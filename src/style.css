@@ -243,8 +243,8 @@ body {
   position: fixed;
   bottom: 80px;
   right: 12px;
-  width: 220px;
-  height: 165px;
+  width: 320px;
+  height: 240px;
   border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
@@ -345,8 +345,8 @@ body {
   }
 
   #jitsi-container {
-    width: 160px;
-    height: 120px;
+    width: 220px;
+    height: 165px;
     bottom: 70px;
     right: 8px;
   }
@@ -364,8 +364,8 @@ body {
 
 @media (max-width: 480px) {
   #jitsi-container {
-    width: 130px;
-    height: 100px;
+    width: 180px;
+    height: 135px;
   }
 
   .character-avatar {

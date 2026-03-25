@@ -1,73 +1,66 @@
 /**
- * Jitsi Meet — video chat only.
- * All state sync is handled by the /api/sync endpoint, not Jitsi data channels.
+ * Video chat via Daily.co Prebuilt.
+ * Loads the Daily.js SDK from CDN and embeds a video call in #jitsi-container.
  */
 
-declare class JitsiMeetExternalAPI {
-  constructor(domain: string, options: Record<string, unknown>);
-  addEventListener(event: string, handler: (data: unknown) => void): void;
-  dispose(): void;
+declare const DailyIframe: {
+  createFrame(
+    parentEl: HTMLElement,
+    options?: Record<string, unknown>,
+  ): DailyCallFrame;
+};
+
+interface DailyCallFrame {
+  join(options: { url: string; userName?: string }): Promise<void>;
+  leave(): Promise<void>;
+  destroy(): Promise<void>;
 }
 
 declare global {
   interface Window {
-    JitsiMeetExternalAPI: typeof JitsiMeetExternalAPI;
+    DailyIframe: typeof DailyIframe;
   }
 }
 
-const JITSI_DOMAIN = 'meet.jit.si';
-const ROOM_NAME = 'grandma-story-time-family-reading';
+const ROOM_URL = import.meta.env.VITE_DAILY_ROOM_URL;
 
-export function initJitsi(displayName: string): { dispose: () => void } {
-  const api = new window.JitsiMeetExternalAPI(JITSI_DOMAIN, {
-    roomName: ROOM_NAME,
-    parentNode: document.getElementById('jitsi-container'),
-    width: '100%',
-    height: '100%',
-    configOverwrite: {
-      startWithAudioMuted: false,
-      startWithVideoMuted: false,
-      prejoinPageEnabled: false,
-      disableDeepLinking: true,
-      toolbarButtons: ['microphone', 'camera', 'hangup'],
-      hideConferenceSubject: true,
-      hideConferenceTimer: true,
-      disableInviteFunctions: true,
-      notifications: [],
-      p2p: { enabled: true },
+let callFrame: DailyCallFrame | null = null;
+
+export function initVideo(displayName: string): { dispose: () => void } {
+  const container = document.getElementById('jitsi-container')!;
+
+  callFrame = window.DailyIframe.createFrame(container, {
+    iframeStyle: {
+      width: '100%',
+      height: '100%',
+      border: 'none',
+      borderRadius: '14px',
     },
-    interfaceConfigOverwrite: {
-      SHOW_JITSI_WATERMARK: false,
-      SHOW_WATERMARK_FOR_GUESTS: false,
-      SHOW_BRAND_WATERMARK: false,
-      SHOW_POWERED_BY: false,
-      TOOLBAR_ALWAYS_VISIBLE: false,
-      DISABLE_JOIN_LEAVE_NOTIFICATIONS: true,
-      HIDE_INVITE_MORE_HEADER: true,
-    },
-    userInfo: { displayName },
+    showLeaveButton: false,
+    showFullscreenButton: false,
   });
 
-  // Set iframe permissions immediately — must happen before the browser
-  // requests camera/mic access, not after videoConferenceJoined.
-  const iframe = document.querySelector('#jitsi-container iframe') as HTMLIFrameElement | null;
-  if (iframe) {
-    iframe.setAttribute('allow', 'camera; microphone; autoplay; display-capture; fullscreen');
-  }
+  callFrame.join({ url: ROOM_URL, userName: displayName });
 
-  return { dispose: () => api.dispose() };
+  return {
+    dispose: () => {
+      callFrame?.destroy();
+      callFrame = null;
+    },
+  };
 }
 
-export function loadJitsiScript(): Promise<void> {
+export function loadVideoScript(): Promise<void> {
   return new Promise((resolve, reject) => {
-    if (window.JitsiMeetExternalAPI) {
+    if (window.DailyIframe) {
       resolve();
       return;
     }
     const script = document.createElement('script');
-    script.src = `https://${JITSI_DOMAIN}/external_api.js`;
+    script.src = 'https://unpkg.com/@daily-co/daily-js';
+    script.crossOrigin = 'anonymous';
     script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Failed to load Jitsi API'));
+    script.onerror = () => reject(new Error('Failed to load Daily.co SDK'));
     document.head.appendChild(script);
   });
 }
