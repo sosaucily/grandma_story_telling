@@ -96,7 +96,7 @@ async function selectBook(book: Book) {
       <div id="page-loading" class="loading">Loading...</div>
     </div>
     <div id="controls">
-      <button id="back-btn">Back</button>
+      <button id="back-btn">Home</button>
       <button id="prev-btn" disabled>Previous</button>
       <span id="page-indicator"></span>
       <button id="next-btn" disabled>Next</button>
