@@ -25,7 +25,7 @@ const state: GrandmaState = {
 export async function initGrandma() {
   const app = document.getElementById('app')!;
 
-  // Show book picker with Jitsi container (video starts on this page)
+  // Show book picker (video container lives in room.html, outside #app)
   app.innerHTML = `
     <div class="book-picker">
       <h2>Pick a book to read!</h2>
@@ -33,7 +33,6 @@ export async function initGrandma() {
         <div class="loading">Loading books...</div>
       </div>
     </div>
-    <div id="jitsi-container"></div>
   `;
 
   // Write initial state so Eli knows we're on the picker
@@ -90,13 +89,6 @@ async function selectBook(book: Book) {
   state.currentBook = book;
   state.phase = 'reading';
 
-  // Preserve Jitsi
-  const jitsiContainer = document.getElementById('jitsi-container')!;
-  const jitsiContent = document.createDocumentFragment();
-  while (jitsiContainer.firstChild) {
-    jitsiContent.appendChild(jitsiContainer.firstChild);
-  }
-
   const app = document.getElementById('app')!;
   app.innerHTML = `
     <div id="page-container">
@@ -109,10 +101,8 @@ async function selectBook(book: Book) {
       <span id="page-indicator"></span>
       <button id="next-btn" disabled>Next</button>
     </div>
-    <div id="jitsi-container"></div>
   `;
   document.body.classList.add('room-body');
-  document.getElementById('jitsi-container')!.appendChild(jitsiContent);
 
   // Set up cursor renderer (polls Redis for Eli's cursor)
   const pageContainer = document.getElementById('page-container')!;
@@ -212,13 +202,6 @@ function setupControls() {
     // Write state so Eli returns to book picker too
     writeState({ phase: 'picking', page: 0, totalPages: 0 });
 
-    // Preserve Jitsi
-    const jitsiContainer = document.getElementById('jitsi-container')!;
-    const jitsiContent = document.createDocumentFragment();
-    while (jitsiContainer.firstChild) {
-      jitsiContent.appendChild(jitsiContainer.firstChild);
-    }
-
     const app = document.getElementById('app')!;
     app.innerHTML = `
       <div class="book-picker">
@@ -227,9 +210,7 @@ function setupControls() {
           <div class="loading">Loading books...</div>
         </div>
       </div>
-      <div id="jitsi-container"></div>
     `;
-    document.getElementById('jitsi-container')!.appendChild(jitsiContent);
     renderBookGrid();
   });
 

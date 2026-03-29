@@ -23,7 +23,7 @@ const state: EliState = {
 export async function initEli() {
   const app = document.getElementById('app')!;
 
-  // Show book picker (read-only) with Jitsi container
+  // Show book picker (read-only; video container lives in room.html)
   app.innerHTML = `
     <div class="book-picker">
       <h2>Tell Grandma which book you want!</h2>
@@ -31,7 +31,6 @@ export async function initEli() {
         <div class="loading">Loading books...</div>
       </div>
     </div>
-    <div id="jitsi-container"></div>
   `;
 
   // Load books and Jitsi in parallel
@@ -99,23 +98,14 @@ async function enterReadingView(bookId: string, page: number) {
   state.phase = 'reading';
   state.currentBookId = bookId;
 
-  // Preserve Jitsi
-  const jitsiContainer = document.getElementById('jitsi-container')!;
-  const jitsiContent = document.createDocumentFragment();
-  while (jitsiContainer.firstChild) {
-    jitsiContent.appendChild(jitsiContainer.firstChild);
-  }
-
   const app = document.getElementById('app')!;
   app.innerHTML = `
     <div id="page-container">
       <img id="book-page" src="" alt="Book page">
       <div id="page-loading" class="loading">Loading...</div>
     </div>
-    <div id="jitsi-container"></div>
   `;
   document.body.classList.add('room-body');
-  document.getElementById('jitsi-container')!.appendChild(jitsiContent);
 
   try {
     state.pages = await listPages(bookId);
@@ -137,13 +127,6 @@ function returnToBookPicker() {
   state.currentPage = 0;
   document.body.classList.remove('room-body');
 
-  // Preserve Jitsi
-  const jitsiContainer = document.getElementById('jitsi-container')!;
-  const jitsiContent = document.createDocumentFragment();
-  while (jitsiContainer.firstChild) {
-    jitsiContent.appendChild(jitsiContainer.firstChild);
-  }
-
   const app = document.getElementById('app')!;
   app.innerHTML = `
     <div class="book-picker">
@@ -152,9 +135,7 @@ function returnToBookPicker() {
         <div class="loading">Loading books...</div>
       </div>
     </div>
-    <div id="jitsi-container"></div>
   `;
-  document.getElementById('jitsi-container')!.appendChild(jitsiContent);
   renderBookGrid();
 }
 

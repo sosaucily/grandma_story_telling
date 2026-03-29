@@ -1,6 +1,7 @@
 /**
  * Video chat via Daily.co Prebuilt.
- * Loads the Daily.js SDK from CDN and embeds a video call in #jitsi-container.
+ * The #jitsi-container lives in room.html (outside #app) so it's
+ * never destroyed by page transitions.
  */
 
 declare const DailyIframe: {
@@ -40,7 +41,10 @@ export function initVideo(displayName: string): { dispose: () => void } {
     showFullscreenButton: false,
   });
 
-  callFrame.join({ url: ROOM_URL, userName: displayName });
+  callFrame.join({
+    url: ROOM_URL,
+    userName: displayName,
+  });
 
   return {
     dispose: () => {
