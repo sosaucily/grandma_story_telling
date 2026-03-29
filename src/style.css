@@ -266,8 +266,8 @@ body {
   position: fixed;
   bottom: 80px;
   right: 12px;
-  width: 320px;
-  height: 240px;
+  width: 400px;
+  height: 320px;
   border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
@@ -377,8 +377,8 @@ body {
   }
 
   #jitsi-container {
-    width: 220px;
-    height: 165px;
+    width: 280px;
+    height: 220px;
     bottom: 70px;
     right: 8px;
   }
