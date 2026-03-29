@@ -103,6 +103,7 @@ async function enterReadingView(bookId: string, page: number) {
     <div id="page-container">
       <img id="book-page" src="" alt="Book page">
       <div id="page-loading" class="loading">Loading...</div>
+      <div id="page-number"></div>
     </div>
   `;
   document.body.classList.add('room-body');
@@ -145,11 +146,13 @@ function showPage(index: number) {
 
   const img = document.getElementById('book-page') as HTMLImageElement | null;
   const loading = document.getElementById('page-loading');
+  const pageNum = document.getElementById('page-number');
   if (!img || !loading) return;
 
   loading.style.display = 'block';
   loading.textContent = 'Loading...';
   img.style.opacity = '0';
+  if (pageNum) pageNum.textContent = `${index + 1} / ${state.pages.length}`;
 
   img.onload = () => {
     loading.style.display = 'none';

@@ -193,6 +193,23 @@ body {
   font-size: 1.2rem;
 }
 
+/* ── Page number overlay ── */
+
+#page-number {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  pointer-events: none;
+  letter-spacing: 0.03em;
+}
+
 /* ── Controls (Grandma only) ── */
 
 #controls {

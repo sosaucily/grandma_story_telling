@@ -94,6 +94,7 @@ async function selectBook(book: Book) {
     <div id="page-container">
       <img id="book-page" src="" alt="Book page">
       <div id="page-loading" class="loading">Loading...</div>
+      <div id="page-number"></div>
     </div>
     <div id="controls">
       <button id="back-btn">Home</button>
@@ -138,12 +139,14 @@ function showPage(index: number) {
   const img = document.getElementById('book-page') as HTMLImageElement;
   const loading = document.getElementById('page-loading')!;
   const indicator = document.getElementById('page-indicator')!;
+  const pageNum = document.getElementById('page-number');
 
   loading.style.display = 'block';
   loading.textContent = 'Loading...';
   img.style.opacity = '0';
 
   indicator.textContent = `Page ${index + 1} of ${state.pages.length}`;
+  if (pageNum) pageNum.textContent = `${index + 1} / ${state.pages.length}`;
 
   const prevBtn = document.getElementById('prev-btn') as HTMLButtonElement;
   const nextBtn = document.getElementById('next-btn') as HTMLButtonElement;
